@@ -2,6 +2,7 @@
 title: "Language and Earnings: The Association Between Chinese Language Use and Wages in the United States"
 author: "Joshua Stewart"
 date: "May 11, 2026"
+github: https://github.com/JoshuaMcKoy/FinalProject 
 format:
   pdf:
     latex-engine: xelatex
@@ -25,6 +26,19 @@ execute:
   warning: false
 ---
 
+```{r}
+#| label: setup
+
+library(data.table)
+library(tidyverse)
+library(knitr)
+library(modelsummary)
+library(scales)
+
+options(modelsummary_format_numeric_latex = "plain")
+options(knitr.kable.NA = '')
+```
+
 # Introduction
 
 In 2006 and 2010, Genifer and Kerry Stewart enrolled their two Black sons into Wesley International Academy, one of the only public elementary schools in the greater-Atlanta area that offered/required instruction in Mandarin Chinese. I was the second of the sons. And, from that point on, I have developed a deep appreciation for Chinese culture and history, as well as a mediocre grasp of the language.
@@ -41,11 +55,81 @@ The primary findings support the first hypothesis and partially supports the thi
 
 # Data
 
+## Replication
+
+The raw IPUMS ACS extract (data1.csv.gz) is approximately 5.1 GB, which is too large to include in the GitHub repository.
+
+To replicate this set, go to <https://usa.ipums.org> and create an new extract with the following:
+
+Samples : 2000 5%, 2001–2004 ACS, 2020–2024 ACS (10 samples total)
+
+Variables: YEAR, SAMPLE, SERIAL, CBSERIAL, HHWT, CLUSTER, STRATA, GQ, PERNUM, PERWT, FAMSIZE, SEX, AGE, RACE, RACED, HISPAN, HISPAND, BPL, BPLD, ANCESTR1, ANCESTR1D, ANCESTR2, ANCESTR2D, YRNATUR, YRIMMIG, YRSUSA1, LANGUAGE, LANGUAGED, SPEAKENG, RACASIAN, RACBLK, SCHLTYPE, EMPSTAT, EMPSTATD, INCTOT, INCWAGE
+
+\# Format : .csv, Rectangular (person)
+
+After placing the downloaded file relative to your .Rmd, run the chunk below to generate the .rds used in this analysis:
+
+```{r}
+#| label: load-data
+#| echo: true
+data_raw <- fread("raw/data1.csv.gz", 
+                  select = c("YEAR","INCTOT","LANGUAGE","AGE", "SEX","RACE","EMPSTAT"))
+data <- readRDS("loaded_data_partial.rds")
+```
+
+Both the raw and filtered files (5.1 GB and 134.4 MB, respectively) both exceed what can be uploaded to GitHUb.
+
+## Filtering the Sample
+
+The present study utilizes publicly available data from the IPUMS ACS, which is a nationally representative survey conducted by the U.S. Census Bureau that provides extremely detailed information on the demographic and economic characteristics of millions of American citizens. For this analysis, I pooled annual samples from 2000-2004 and 2020-2024, resulting in a combined dataset of over 34 million observations before filtering.
+
+The raw data set combined ten samples from 2000-2004 and 2020-2024, but given technological constraints, this analysis focused on only the following variables for the 34 million total respondents: YEAR, INCTOT (income), LANGAUGE (language(s) spoken at home), AGE, SEX, RACE, and EMPSTAT (employment status).
+
+In particular, to filter the limited sample to only the economically active population, I restrict the sample to employed indivdiuals (EMPSTAT = 1 or 2) between the ages of 22 and 64 with positive total income (INCTOT \> 0). Filtering reduces the dataset to approximately 14 million observations. Again due to technological constraints, I then draw a random sample of 500,000 observations (seed = 1) and conduct all analyses on this subsample. Within the sample, 5,412 individuals (approximately 1.1%) speak Chinese at home.
+
+```{r}
+#| label: filter-data
+#| echo: true
+data <- data[EMPSTAT %in% c(1, 2) & INCTOT > 0 & AGE >= 22 & AGE <= 64]
+
+data[, race_label := factor(RACE,
+                            levels = 1:9,
+                            labels = c("White",
+                                       "Black",
+                                       "American Indian/Alaska Native",
+                                       "Chinese",
+                                       "Japanese",
+                                       "Other Asian/Pacific Islander",
+                                       "Other race",
+                                       "Two races",
+                                       "Three+ races"))]
+
+data[, sex_label := factor(SEX,
+                           levels = c(1, 2),
+                           labels = c("Male", 
+                                      "Female"))]
+
+data[, chinese := ifelse(LANGUAGE == 43, 1, 0)]
+data[, log_income := log(INCTOT)]
+data[, period := ifelse(YEAR <= 2004, 
+                        "2000-2004", 
+                        "2020-2024")]
+
+set.seed(1)
+data <- data[sample(.N, 500000)]
+```
+
+## Key Variables
+
+## Descriptive Statistics
+
 # Analysis
 
 # Conclusion
 
 ## Limitations
+
+This study was also limited purely by technology. Although additional variables, such as YRIMMIG (the year the respondent immigrated to the United States), BPL (birthplace), SCHLTYPE (whether the respondent attended public or private school), and ANCESTR1 (the respondent's self-reported ancestry or ethnic origin), could be beneficial to further analysis, technological constraints required that they be excluded from the sample.
 
 # References
 
