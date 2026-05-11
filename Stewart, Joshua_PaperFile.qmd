@@ -71,10 +71,11 @@ After placing the downloaded file relative to your .Rmd, run the chunk below to 
 
 ```{r}
 #| label: load-data
+#| eval: false
 #| echo: true
 data_raw <- fread("raw/data1.csv.gz", 
                   select = c("YEAR","INCTOT","LANGUAGE","AGE", "SEX","RACE","EMPSTAT"))
-data <- readRDS("loaded_data_partial.rds")
+saveRDS(data_raw, "loaded_data_partial.rds")
 ```
 
 Both the raw and filtered files (5.1 GB and 134.4 MB, respectively) both exceed what can be uploaded to GitHUb.
@@ -85,11 +86,13 @@ The present study utilizes publicly available data from the IPUMS ACS, which is 
 
 The raw data set combined ten samples from 2000-2004 and 2020-2024, but given technological constraints, this analysis focused on only the following variables for the 34 million total respondents: YEAR, INCTOT (income), LANGAUGE (language(s) spoken at home), AGE, SEX, RACE, and EMPSTAT (employment status).
 
-In particular, to filter the limited sample to only the economically active population, I restrict the sample to employed indivdiuals (EMPSTAT = 1 or 2) between the ages of 22 and 64 with positive total income (INCTOT \> 0). Filtering reduces the dataset to approximately 14 million observations. Again due to technological constraints, I then draw a random sample of 500,000 observations (seed = 1) and conduct all analyses on this subsample. Within the sample, 5,412 individuals (approximately 1.1%) speak Chinese at home.
+In particular, to filter the limited sample to only the economically active population, I restrict the sample to employed individuals (EMPSTAT = 1 or 2) between the ages of 22 and 64 with positive total income (INCTOT \> 0). Filtering reduces the dataset to approximately 14 million observations. Again due to technological constraints, I then draw a random sample of 500,000 observations (seed = 1) and conduct all analyses on this sub-sample. Within the sample, 5,412 individuals (approximately 1.1%) speak Chinese at home.
 
 ```{r}
 #| label: filter-data
 #| echo: true
+data <- readRDS("loaded_data_partial.rds")
+
 data <- data[EMPSTAT %in% c(1, 2) & INCTOT > 0 & AGE >= 22 & AGE <= 64]
 
 data[, race_label := factor(RACE,
@@ -121,13 +124,23 @@ data <- data[sample(.N, 500000)]
 
 ## Key Variables
 
+Given that this study focuses on the economic advantages of Chinese language fluency, the primary independent variable in the present study is a binary indicator of whether an individual in the dataset speaks Chinese (If LANGUAGE = 43, then the 'chinese' variable 1 (yes, they speak Chinese). If not, then the 'chinese' variable is 0). This operationalization is imperfect, as it only captures the language an individual respondent speaks at home, not necessarily the fluency of a non-native language. This issue is discussed in the limitations section. The present study's primary dependent variable is the natural log of INCTOT (total person income), which allows for the analysis of the association between language fluency on total income.
+
+To assess such an association, this study accounts for control variables, including age, sex, race, and the survey year.
+
 ## Descriptive Statistics
 
 # Analysis
 
+WORDS WORDS WORDS
+
 # Conclusion
 
+WORDS WORDS WORDS
+
 ## Limitations
+
+Although the ACS sample allows for robust examinations of the American population with large samples, one primary limitation is that it lacks a specific variable for non-native languages spoken. Given that the only language variable (LANGUAGE) gauges the language an individual speaks at home, the operationalization of language use in this study is inherently hindered.
 
 This study was also limited purely by technology. Although additional variables, such as YRIMMIG (the year the respondent immigrated to the United States), BPL (birthplace), SCHLTYPE (whether the respondent attended public or private school), and ANCESTR1 (the respondent's self-reported ancestry or ethnic origin), could be beneficial to further analysis, technological constraints required that they be excluded from the sample.
 
