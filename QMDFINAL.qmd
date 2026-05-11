@@ -1,0 +1,51 @@
+---
+title: "Language and Earnings: The Association Between Chinese Language Use and Wages in the United States"
+author: "Joshua Stewart"
+date: "May 11, 2026"
+format:
+  pdf:
+    latex-engine: xelatex
+    number-sections: true
+    fig-cap-location: bottom
+    tbl-cap-location: top
+    keep-tex: false
+    geometry: margin=1in
+    fontsize: 12pt
+    include-in-header:
+      text: |
+        \usepackage{setspace}
+        \doublespacing
+        \usepackage{booktabs}
+        \usepackage{float}
+        \floatplacement{figure}{H}
+        \floatplacement{table}{H}
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+# Introduction
+
+In 2006 and 2010, Genifer and Kerry Stewart enrolled their two Black sons into Wesley International Academy, one of the only public elementary schools in the greater-Atlanta area that offered/required instruction in Mandarin Chinese. I was the second of the sons. And, from that point on, I have developed a deep appreciation for Chinese culture and history, as well as a mediocre grasp of the language.
+
+A few years ago I finally asked my parents to explain their motive, which was simple: With China’s growing economic, political, and social influence, they believed their children should be equipped with the skills to solve the problems the future demands — one of which being speaking a Chinese language.
+
+16 years later, the present study examines this presumption using data: does Chinese language ability translate into a measurable economic advantage in the United States?
+
+In particular, this paper addresses the following research question: *Is Chinese language use associated with wage differences in the United States?* The present study is a descriptive study, aiming to document associations in observational data, rather than establish causation or predict out-of-sample outcomes. Although the other two approaches could yield fruitful data in this context, I argue that descriptive analysis is most appropriate here because, despite Chinese being one of the fastest growing languages in the world and China economically rivaling the United States, the relationship between Chinese language use and wages specifically in the American context is not thoroughly examined in existing literature.
+
+The present study uses data from the Integrated Public Use Microdata Series (IPUMS) American Community Service (ACS), particularly analyzing samples from 2000-2004 and 2020-2024.
+
+# Data
+
+# Analysis
+
+# Conclusion
+
+## Limitations
+
+# References
+
+Steven Ruggles, Sarah Flood, Matthew Sobek, Daniel Backman, Grace Cooper, Julia A. Rivera Drew, Stephanie Richards, Renae Rodgers, Jonathan Schroeder, and Kari C.W. Williams. *IPUMS USA: Version 16.0* \[dataset\]. Minneapolis, MN: IPUMS, 2025.\
+<https://doi.org/10.18128/D010.V16.0>

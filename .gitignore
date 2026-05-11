@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+loaded_data_partial.rds
+raw/data1.csv.gz
+*.rds
+*.csv.gz
+*.rds
+*.csv.gz
+raw/
