@@ -2,7 +2,6 @@
 title: "Language and Earnings: The Association Between Chinese Language Use and Wages in the United States"
 author: "Joshua Stewart"
 date: "May 11, 2026"
-github: https://github.com/JoshuaMcKoy/FinalProject 
 format:
   pdf:
     latex-engine: xelatex
@@ -11,7 +10,8 @@ format:
     tbl-cap-location: top
     keep-tex: false
     geometry: margin=1in
-    fontsize: 12pt
+    fontsize: 11pt
+    linestretch: 1.1
     include-in-header:
       text: |
         \usepackage{setspace}
@@ -21,23 +21,29 @@ format:
         \floatplacement{figure}{H}
         \floatplacement{table}{H}
 execute:
-  echo: false
+  echo: true
   message: false
   warning: false
 ---
 
 ```{r}
 #| label: setup
+#| echo: FALSE
 
 library(data.table)
 library(tidyverse)
 library(knitr)
 library(modelsummary)
 library(scales)
+library(kableExtra)
 
 options(modelsummary_format_numeric_latex = "plain")
 options(knitr.kable.NA = '')
 ```
+
+# Github Link
+
+<https://github.com/JoshuaMcKoy/FinalProject>
 
 # Introduction
 
@@ -49,9 +55,9 @@ A few years ago I finally asked my parents to explain their motive, which was si
 
 In particular, this paper addresses the following research question: *Is Chinese language use associated with wage differences in the United States?* The present study is a descriptive study, aiming to document associations in observational data, rather than establish causation or predict out-of-sample outcomes. Although the other two approaches could yield fruitful data in this context, I argue that descriptive analysis is most appropriate here because, despite Chinese being one of the fastest growing languages in the world and China economically rivaling the United States, the relationship between Chinese language use and wages specifically in the American context is not thoroughly examined in existing literature.
 
-The present study uses data from the Integrated Public Use Microdata Series (IPUMS) American Community Service (ACS), particularly analyzing samples from 2000-2004 and 2020-2024. Pre-analysis, I expected the following results: (1) Chinese speakers would earn more than non-Chinese speakers, especially in more recent years, (2) after controlling for demographic variables, the positive association would shrink but still exist, and (3) non-ethnically Chinese Americans with Chinese language fluency would earn more than ethnically Chinese Americans with Chinese language fluency.
+The present study uses data from the Integrated Public Use Microdata Series (IPUMS) American Community Service (ACS), particularly analyzing samples from 2000-2004 and 2020-2024. Pre-analysis, I expected the following results: (1) Chinese speakers would earn more than non-Chinese speakers, (2) after controlling for demographic variables, the positive association would shrink but still exist, and (3) non-ethnically Chinese Americans with Chinese language fluency would earn more than ethnically Chinese Americans with Chinese language fluency.
 
-The primary findings support the first hypothesis and partially supports the third hypothesis, while rejecting the second. Instead of seeing a small but positive association between language fluency and wage after controlling for demographic variables, the assocaition actually flips negative after controlling for race. I argue through subsequent analysis that this reversal in association suggests that initial association reflects those who speak Chinese, which are predominantly recent immigrants or Asian Americans with labor market, who may face labor market disadvantages, instead of the actual returns of language fluency itself.
+The primary findings support the first hypothesis and partially supports the third hypothesis, while rejecting the second. Instead of seeing a small but positive association between language fluency and wage after controlling for demographic variables, the association actually flips negative after controlling for race. I argue through subsequent analysis that this reversal in association suggests that initial association reflects those who speak Chinese, which are predominantly recent immigrants or Asian Americans with labor market, who may face labor market disadvantages, instead of the actual returns of language fluency itself.
 
 # Data
 
@@ -65,14 +71,13 @@ Samples : 2000 5%, 2001–2004 ACS, 2020–2024 ACS (10 samples total)
 
 Variables: YEAR, SAMPLE, SERIAL, CBSERIAL, HHWT, CLUSTER, STRATA, GQ, PERNUM, PERWT, FAMSIZE, SEX, AGE, RACE, RACED, HISPAN, HISPAND, BPL, BPLD, ANCESTR1, ANCESTR1D, ANCESTR2, ANCESTR2D, YRNATUR, YRIMMIG, YRSUSA1, LANGUAGE, LANGUAGED, SPEAKENG, RACASIAN, RACBLK, SCHLTYPE, EMPSTAT, EMPSTATD, INCTOT, INCWAGE
 
-\# Format : .csv, Rectangular (person)
+Format : .csv, Rectangular (person)
 
 After placing the downloaded file relative to your .Rmd, run the chunk below to generate the .rds used in this analysis:
 
 ```{r}
 #| label: load-data
 #| eval: false
-#| echo: true
 data_raw <- fread("raw/data1.csv.gz", 
                   select = c("YEAR","INCTOT","LANGUAGE","AGE", "SEX","RACE","EMPSTAT"))
 saveRDS(data_raw, "loaded_data_partial.rds")
@@ -82,67 +87,348 @@ Both the raw and filtered files (5.1 GB and 134.4 MB, respectively) both exceed 
 
 ## Filtering the Sample
 
-The present study utilizes publicly available data from the IPUMS ACS, which is a nationally representative survey conducted by the U.S. Census Bureau that provides extremely detailed information on the demographic and economic characteristics of millions of American citizens. For this analysis, I pooled annual samples from 2000-2004 and 2020-2024, resulting in a combined dataset of over 34 million observations before filtering.
+For this study, I use data from the IPUMS ACS, which is a publicly available nationally representative survey conducted by the U.S. Census Bureau. It is extremely detailed, containing a library of demographic and economic variables on millions of American citizens.
 
-The raw data set combined ten samples from 2000-2004 and 2020-2024, but given technological constraints, this analysis focused on only the following variables for the 34 million total respondents: YEAR, INCTOT (income), LANGAUGE (language(s) spoken at home), AGE, SEX, RACE, and EMPSTAT (employment status).
+For this project, I pooled annual samples from 2000-2004 and 2020-2024 to see the variance in response between the two periods, resulting in a combined dataset of over 34 million observations before filtering. Each observation is one American respondent in one year. Thus, the raw dataset contains ten samples from 2000-2004 and 2020-2024.
 
-In particular, to filter the limited sample to only the economically active population, I restrict the sample to employed individuals (EMPSTAT = 1 or 2) between the ages of 22 and 64 with positive total income (INCTOT \> 0). Filtering reduces the dataset to approximately 14 million observations. Again due to technological constraints, I then draw a random sample of 500,000 observations (seed = 1) and conduct all analyses on this sub-sample. Within the sample, 5,412 individuals (approximately 1.1%) speak Chinese at home.
+Given technological constraints, I focus on only the following variables for the 34 million total respondents (although, deeper analysis involving all included variables would be beneficial): YEAR, INCTOT (total personal income), LANGAUGE (language(s) spoken at home), AGE, SEX, RACE, and EMPSTAT (employment status).
+
+Further, to filter the sample to only the economically active population, I restrict the sample to employed individuals (EMPSTAT = 1 or 2) between the ages of 22 and 64 (22 =\< AGE =\< 64) with positive total income (INCTOT \> 0). This filtering reduces the dataset to approximately 14 million observations. 14 million observations was still overbearing for my laptop, so, again, due to technological constraints, I draw a random sample of 500,000 observations (seed = 1) and conduct all analyses on this sub-sample.
 
 ```{r}
 #| label: filter-data
-#| echo: true
 data <- readRDS("loaded_data_partial.rds")
 
-data <- data[EMPSTAT %in% c(1, 2) & INCTOT > 0 & AGE >= 22 & AGE <= 64]
-
-data[, race_label := factor(RACE,
-                            levels = 1:9,
-                            labels = c("White",
-                                       "Black",
-                                       "American Indian/Alaska Native",
-                                       "Chinese",
-                                       "Japanese",
-                                       "Other Asian/Pacific Islander",
-                                       "Other race",
-                                       "Two races",
-                                       "Three+ races"))]
-
-data[, sex_label := factor(SEX,
-                           levels = c(1, 2),
-                           labels = c("Male", 
-                                      "Female"))]
-
-data[, chinese := ifelse(LANGUAGE == 43, 1, 0)]
-data[, log_income := log(INCTOT)]
-data[, period := ifelse(YEAR <= 2004, 
-                        "2000-2004", 
-                        "2020-2024")]
+data <- data |>
+  filter(EMPSTAT %in% c(1, 2),
+         INCTOT > 0,
+         AGE >= 22,
+         AGE <= 64) |>
+  mutate(race_label = factor(RACE,
+                             levels = 1:9,
+                             labels = c("White",
+                                   "Black","American Indian/Alaska Native",
+                                   "Chinese",
+                                   "Japanese",
+                                   "Other Asian/Pacific Islander",
+                                   "Other race",
+                                   "Two races",
+                                   "Three+ races")),
+         sex_label = factor(SEX,
+                             levels = c(1, 2),
+                             labels = c("Male", "Female")),
+         chinese = ifelse(LANGUAGE == 43, 1, 0),
+         log_income = log(INCTOT),
+         period = ifelse(YEAR <= 2004, "2000-2004", "2020-2024"))
 
 set.seed(1)
-data <- data[sample(.N, 500000)]
+data <- data |> slice_sample(n = 500000)
 ```
+
+Within the sample, 5,412 individuals (approximately 1.08%) speak Chinese. The table below summarizes the baseline income differences between the Chinese-speaking sample and the non-Chinese speaking sample:
+
+```{r}
+#| label: tbl-1
+#| tbl-cap: "Income summary statistics by Chinese language status, IPUMS ACS 2000–2024 (N = 500,000). Chinese speakers (n = 5,412) earn approximately $21,400 more per year on average than non-Chinese speakers (n = 494,588)."
+data |>
+  mutate(Group = ifelse(chinese == 1, "Chinese Speaker", "Non-Chinese Speaker")) |>
+  group_by(chinese) |>
+  summarize(Observations = n(),
+            `Mean Income` = round(mean(INCTOT, na.rm = TRUE), 0),
+            `Median Income` = round(median(INCTOT, na.rm = TRUE), 0),
+            `Mean Age`    = round(mean(AGE, na.rm = TRUE), 1),
+            .groups = "drop") |>
+  kable(booktabs = TRUE,
+        format.args = list(big.mark = ",")) |>
+  kable_styling(latex_options = "hold_position")
+```
+
+Americans who speak Chinese average approximately \$75,300 in annual income. while those who do not speak Chinese average approximately \$53,900 in annual income. These overall averages seemingly supports my first hypothesis.
 
 ## Key Variables
 
-Given that this study focuses on the economic advantages of Chinese language fluency, the primary independent variable in the present study is a binary indicator of whether an individual in the dataset speaks Chinese (If LANGUAGE = 43, then the 'chinese' variable 1 (yes, they speak Chinese). If not, then the 'chinese' variable is 0). This operationalization is imperfect, as it only captures the language an individual respondent speaks at home, not necessarily the fluency of a non-native language. This issue is discussed in the limitations section. The present study's primary dependent variable is the natural log of INCTOT (total person income), which allows for the analysis of the association between language fluency on total income.
+Given that this study focuses on the economic advantages of Chinese language fluency, the primary independent variable in the present study is a binary indicator of whether the individual observed in the dataset speaks Chinese at home. If LANGUAGE = 43, then the 'chinese' variable is 1, which means that the individiual does speak Chinese. If not, then the 'chinese' variable is 0. This operationalization is imperfect, as it only captures the language an individual respondent speaks at home, not necessarily the fluency of a non-native language. This dichotomy, for example, would not capture Black indivdiuals who learned Chinese through school, like myself, unless they report that they speak Chinese at home on the Census. This issue is significant, given that the original intention of this study was to, at least in part, study those uncaptured populations. I discuss this dilemma further in the limitations section. The present study's primary dependent variable is the natural log of INCTOT (total personal income), which allows for the analysis of the association between language fluency on total income.
 
 To assess such an association, this study accounts for control variables, including age, sex, race, and the survey year.
 
-## Descriptive Statistics
-
 # Analysis
 
-WORDS WORDS WORDS
+## Income Distribution by Language Status
+
+In order to examine the first expectation in further depth, I ask: to what extent do Chinese-speaking individuals earn more, on average, than non-Chinese speakers?
+
+```{r}
+#| label: fig-1
+#| fig-cap: "Income distribution by Chinese language status, U.S. employed adults ages 22–64, IPUMS ACS 2000–2024 (N = 500,000). The y-axis is on a logarithmic scale. Chinese speakers show a higher median income and a compressed lower tail relative to non-Chinese speakers, consistent with the raw mean difference in Table 1. This unconditional comparison does not account for differences in age, sex, or racial composition across the two groups."
+#| fig-width: 8
+#| fig-height: 5
+#| out-width: "100%"
+
+ggplot(data, 
+       aes(x = factor(chinese, 
+                      labels = c("Cannot Speak Chinese", 
+                                 "Can Speak Chinese")), 
+           y = INCTOT)) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  scale_y_log10(labels = scales::comma) +
+  labs(x = "Language Ability",
+       y = "Income (log)",
+       title = "Income Distribution by Chinese Language Status") +
+  theme_minimal(base_size = 14)
+```
+
+Before complicating this question with control variables, Figure 1 shows the raw income distribution for Chinese speakers and non-Chinese speakers in this sample (n = 500,000) on a logarithmic scale. On average, Chinese speakers have a higher logarithmic income than non-Chinese speakers, given that Chinese speakers have a higher median and a less pronounced tail. This finding is consistent with the mean difference reported in Table 1, supporting the first hypothesis that Chinese speakers would earn more than non-Chinese speakers, without considering survey period and demographic variables.
+
+This initial finding is consistent with my parents implciit assumption that by teaching their children Chinese that they may be setting them up for better economic returns in the future.
+
+## Nested OLS Regression
+
+However, upon further investigation, their presumption might not actually be supported.
+
+To isolate the association between Chinese language use and income, I estimate a series of nested OLS regressions, progressively adding demographic controls to observe the change to the primary coefficient. The outcome in all models is INCTOT, or log total personal income, and the key coefficient of interest is that on the Chinese language indicator. Figure 2 plots this coefficient across the five model specifications.
+
+```{r}
+#| label: fig-coefplot
+#| fig-cap: "Coefficient on the Chinese language indicator across five nested OLS models, with 95% confidence intervals. The outcome variable is log total personal income. Controls are added sequentially: age (Model 2), sex (Model 3), race (Model 4), and survey year fixed effects (Model 5). The dotted vertical line marks the introduction of race controls, after which the coefficient reverses from positive to negative. Data: IPUMS ACS 2000–2024, N = 500,000."
+#| fig-width: 8
+#| fig-height: 5
+#| out-width: "100%"
+
+m1 <- lm(log_income ~ chinese, data = data)
+m2 <- lm(log_income ~ chinese + AGE, data = data)
+m3 <- lm(log_income ~ chinese + AGE + sex_label, data = data)
+m4 <- lm(log_income ~ chinese + AGE + sex_label + race_label, data = data)
+m5 <- lm(log_income ~ chinese + AGE + sex_label + race_label + factor(YEAR), data = data)
+
+coef_data <- data.frame(
+  model = factor(c("No Controls", "+ Age", "+ Sex", "+ Race", "+ Year"),
+                 levels = c("No Controls", "+ Age", "+ Sex", "+ Race", "+ Year")),
+  estimate = c(coef(m1)["chinese"],
+               coef(m2)["chinese"],
+               coef(m3)["chinese"],
+               coef(m4)["chinese"],
+               coef(m5)["chinese"]),
+  se = c(summary(m1)$coefficients["chinese", "Std. Error"],
+         summary(m2)$coefficients["chinese", "Std. Error"],
+         summary(m3)$coefficients["chinese", "Std. Error"],
+         summary(m4)$coefficients["chinese", "Std. Error"],
+         summary(m5)$coefficients["chinese", "Std. Error"]))
+
+coef_data$ci_low  <- coef_data$estimate - 1.96 * coef_data$se
+coef_data$ci_high <- coef_data$estimate + 1.96 * coef_data$se
+
+ggplot(coef_data, aes(x = model, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_pointrange(aes(ymin = ci_low, ymax = ci_high), 
+                  size = 0.8, color = "steelblue") +
+  geom_vline(xintercept = 3.5, linetype = "dotted", color = "firebrick", alpha = 0.6) +
+  annotate("text", x = 3.6, y = 0.27, label = "Race added ->", 
+           hjust = 0, size = 3.5, color = "firebrick") +
+  labs(title = "Association Between Chinese Language Use and Log Income",
+       subtitle = "Coefficient on 'Speaks Chinese at Home' across nested OLS models",
+       x = "Iteration",
+       y = "Coefficient (log income)",
+       caption = "95% confidence intervals shown. N = 500,000. Data: IPUMS ACS 2000-2024.") +
+  theme_minimal(base_size = 13) +
+  theme(plot.subtitle = element_text(color = "gray40"))
+```
+
+Before any controls, speaking Chinese at home is associated with approximately 24% higher income (coefficient approximately 0.236, p \< 0.001). Adding age and sex do not move the estimate very much, suggesting that those variables do not explain a lot of the variance in the data. However, when the race variable is added, the coefficient reverses, falling to approximately -0.21. Adding survey year fixed effects in Model 5 produces only a marginal change.
+
+This sign reversal suggests that the raw income premium may reflect the racial composition of Chinese speakers rather than any economic return to language fluency itself.
+
+Table 2 presents the full regression output for the baseline model (no controls) and the fully specified model (all controls). In the model without controls, speaking Chinese is associated with a statistically significant 23.6% income premium. In the fully specified model, this reverses to a 19.3% *penalty*, holding age, sex, race, and survey year constant. Among the control variables, being female is associated with roughly 41% lower income. Black and Indigenous workers earn approximately 28% and 41% less than comparable White workers, respectively. Notably, workers identified as ethnically Chinese earn significantly *more* than White workers after controls.
+
+This prompts us to ask: If ethnically Chinese workers earn significantly more than their White counterparts, why is does Chinese fluency present as a potential penalty?
+
+```{r}
+#| label: tbl-regression
+#| tbl-cap: "OLS regression of log total personal income on Chinese language use, U.S. employed adults ages 22-64 (N = 500,000). The No Controls model includes only the Chinese language indicator. The With Controls model adds age, sex (reference: Male), race (reference: White), and survey year fixed effects. Standard errors in parentheses. Data: IPUMS ACS 2000-2024."
+modelsimp <- lm(log_income ~ chinese, 
+                data = data)
+modelcomp <- lm(log_income ~ chinese + AGE + sex_label + race_label + factor(YEAR),
+                data = data)
+modelsummary(list("No Controls" = modelsimp,
+                  "With Controls" = modelcomp),
+             coef_map = c("chinese" = "Speaks Chinese",
+                          "AGE" = "Age",
+                          "sex_labelFemale" = "Female",
+                          "race_labelBlack" = "Black",
+                          "race_labelAmerican Indian/Alaska Native" = "Indigenous",
+                          "race_labelChinese" = "Asian, Chinese",
+                          "race_labelJapanese" = "Asian, Japanese",
+                          "race_labelOther Asian/Pacific Islander" = "AAPI",
+                          "race_labelOther race" = "Other",
+                          "race_labelTwo races" = "Biracial",
+                          "race_labelThree+ races" = "Multiracial (3+)"),
+             stars = TRUE,
+             statistic = "({std.error})",
+             output    = "kableExtra",
+             booktabs  = TRUE)
+```
+
+## Subgroup Analysis: Ethnically Chinese Americans
+
+One potential explanation is that the LANGUAGE variable is capturing immigrant background/status, in addition to langauge fluency. For example, Chinese speakers may disproportionately be recent immigrants who face labor market barriers unrelated to language ability itself. To probe this, I restrict the sample to respondents identified as racially Chinese and re-estimate the models within this subgroup (N = approximately 6,5000).
+
+```{r}
+#| label: tbl-chinese
+#| tbl-cap: "OLS regression of log total personal income on Chinese language use, restricted to respondents identified as racially Chinese (n = 6,500). The No Controls model includes only the Chinese language indicator. The With Controls model adds age, sex, and survey year fixed effects. Race is excluded as a control given the homogeneity of the subsample. Standard errors in parentheses. Data: IPUMS ACS 2000-2024."
+
+data_chinese_race <- data |> filter(race_label == "Chinese")
+
+m_chinese_simple <- lm(log_income ~ chinese, data = data_chinese_race)
+m_chinese_full <- lm(log_income ~ chinese + AGE + sex_label + factor(YEAR),
+                     data = data_chinese_race)
+
+modelsummary(list("Chinese Race, No Controls" = m_chinese_simple,
+                  "Chinese Race, With Controls" = m_chinese_full),
+             coef_map = c("chinese" = "Speaks Chinese",
+                          "AGE" = "Age",
+                          "sex_labelFemale"   = "Female"),
+             stars = TRUE,
+             statistic = "({std.error})")
+```
+
+Within the ethnically Chinese subsample, speaking Chinese at home is associated with lower income even before controls are introduced. Although I was not able to include immigrant variables, this finding is negates the hypothesis that the income premium from speaking Chinese would still be positive after controls. Instead, this information suggests that Chinese-speaking Chinese Americans may be more likely to be recent immigrants or to work in immigrant-serving industries, while English-dominant Chinese Americans are better integrated into higher-wage sectors of the economy. Importantly, this result does not allow us to attribute the income difference to language. Immigrant status, education, occupational sector, and other unmeasured variables remain important potential confounders.
+
+## Interactions by Race
+
+To further examine how the association between Chinese language use and income varies across racial groups, I estimate an interaction model between the Chinese language indicator and the race variable. Table 4 presents the results.
+
+```{r}
+#| label: tbl-interaction
+#| tbl-cap: "OLS regression of log total personal income on Chinese language use interacted with race, U.S. employed adults ages 22-64 (N = 500,000). The baseline coefficient (Speaks Chinese, ref: White) captures the association for White Chinese speakers. Each interaction term estimates the additional difference in that association for the given racial group relative to White Chinese speakers. Age, sex, race main effects, and survey year fixed effects are included but not shown. Standard errors in parentheses. Data: IPUMS ACS 2000-2024."
+#| 
+m_interact <- lm(log_income ~ chinese * race_label + AGE + sex_label + factor(YEAR),
+                 data = data)
+
+modelsummary(list("Interaction Model" = m_interact),
+             coef_map = c("chinese" = "Speaks Chinese (ref: White)",
+                          "chinese:race_labelChinese" = "Chinese x Asian Chinese",
+                          "chinese:race_labelJapanese" = "Chinese x Japanese",
+                          "chinese:race_labelOther Asian/Pacific Islander" = "Chinese x AAPI",
+                          "chinese:race_labelOther race" = "Chinese x Other",
+                          "chinese:race_labelTwo races" = "Chinese x Biracial",
+                          "chinese:race_labelThree+ races" = "Chinese x Multiracial"),
+             stars = TRUE,
+             statistic = "({std.error})",
+             output = "kableExtra",
+             booktabs = TRUE)
+```
+
+The results reveal meaningful heterogeneity across groups. For White respondents, the reference category, speaking Chinese is associated with a positive income premium, consistent with the idea that Chinese fluency signals a rare and valuable skill for this group. The interaction terms for Asian Chinese and AAPI respondents, however, are negative and statistically significant. This indicates that Chinese-speaking individuals within these groups face a substantially larger income penalty than Chinese-speaking White individuals do, again consistent with immigrant disadvantage rather than a language premium driving the raw association.
+
+### Interactions Across Time
+
+```{r}
+#| label: tbl-period
+#| tbl-cap: "OLS regression of log total personal income on Chinese language use by survey period. Models are estimated separately on the 2000-2004 subsample (n = 276,235) and the 2020-2024 subsample (n = 223,765). Within each period, the No Controls model includes only the Chinese language indicator and the With Controls model adds age, sex (reference: Male), race (reference: White), and survey year fixed effects. Standard errors in parentheses. Data: IPUMS ACS 2000-2024."
+
+data_early <- data |> filter(YEAR %in% c(2000, 2001, 2002, 2003, 2004))
+data_late  <- data |> filter(YEAR %in% c(2020, 2021, 2022, 2023, 2024))
+
+m_early_simple <- lm(log_income ~ chinese, data = data_early)
+m_early_full   <- lm(log_income ~ chinese + AGE + sex_label + race_label, 
+                     data = data_early)
+m_late_simple <- lm(log_income ~ chinese, data = data_late)
+m_late_full   <- lm(log_income ~ chinese + AGE + sex_label + race_label, 
+                    data = data_late)
+
+modelsummary(list("2000-2004, No Controls" = m_early_simple,
+                  "2000-2004, With Controls" = m_early_full,
+                  "2020-2024, No Controls" = m_late_simple,
+                  "2020-2024, With Controls" = m_late_full),
+             coef_map = c("chinese" = "Speaks Chinese",
+                          "AGE" = "Age",
+                          "sex_labelFemale" = "Female",
+                          "race_labelBlack" = "Black",
+                          "race_labelAmerican Indian/Alaska Native" = "Indigenous",
+                          "race_labelChinese" = "Asian, Chinese",
+                          "race_labelJapanese" = "Asian, Japanese",
+                          "race_labelOther Asian/Pacific Islander" = "AAPI",
+                          "race_labelOther race" = "Other",
+                          "race_labelTwo races" = "Biracial",
+                          "race_labelThree+ races" = "Multiracial (3+)"),
+             stars = TRUE,
+             statistic = "({std.error})",
+             gof_map = c("nobs"),
+             output = "kableExtra",
+             booktabs = TRUE) |>
+  kableExtra::kable_styling(latex_options = c("scale_down"))
+```
+
+Table 5 examines whether the association between Chinese language use and income has changed over time by estimating models separately on the 2000–2004 and 2020–2024 subsamples. Two findings stand out.
+
+First, the reversal is consistent across both periods: in both eras, the raw positive association between Chinese language use and income becomes negative once race controls are introduced, indicating that the pattern documented in the pooled sample is not unique to either time period.
+
+Second, the magnitude of the raw premium has grown: before controls, the coefficient on Chinese language use rises from 0.078 in 2000–2004 to 0.191 in 2020–2024, suggesting that the income gap between Chinese speakers and non-Chinese speakers has widened marginally over time. After controls, however, the penalty is nearly identical across periods (−0.190 vs. −0.193), indicating that the growing raw premium is driven by shifts in the composition of who speaks Chinese, instead of indicating a change in the association between language use and wages.
+
+The remaining interaction terms are positive or near-zero but statistically insignificant, likely reflecting the small number of Chinese speakers within these groups rather than a meaningful income premium. These estimates should be interpreted with caution given their wide confidence intervals.
+
+## Robustness: Stability Across Random Samples
+
+To assess robustness, I re-estimate the fully specified model across five independent random draws of 500,000 observations from the same filtered dataset. Figure 3 plots the Chinese language coefficient across these five draws.
+
+```{r}
+#| label: fig-robustness
+#| fig-cap: "Coefficient on the Chinese language indicator across five independent random draws of 500,000 observations from the filtered dataset. Each draw uses the fully specified model (controls for age, sex, race, and survey year). The dashed horizontal line marks the mean coefficient across all five draws. Variation across draws is minimal (range approximately 0.028 log points), indicating that the estimated penalty is stable and not an artifact of any particular sample. Data: IPUMS ACS 2000–2024."
+set.seed(123)
+
+data_full <- readRDS("loaded_data_partial.rds") |>
+  as_tibble() |>
+  filter(EMPSTAT %in% c(1, 2), INCTOT > 0, AGE >= 22, AGE <= 64) |>
+  mutate(race_label = factor(RACE, levels = 1:9,
+                             labels = c("White", 
+                                        "Black", 
+                                        "American Indian/Alaska Native",
+                                        "Chinese", 
+                                        "Japanese", 
+                                        "Other Asian/Pacific Islander",
+                                        "Other race", 
+                                        "Two races", 
+                                        "Three+ races")),
+    sex_label = factor(SEX, levels = c(1, 2), labels = c("Male", "Female")),
+    chinese = ifelse(LANGUAGE == 43, 1, 0),
+    log_income = log(INCTOT))
+
+results <- lapply(1:5, function(i) {
+  samp  <- data_full |> slice_sample(n = 500000)
+  model <- lm(log_income ~ chinese + AGE + sex_label + race_label + factor(YEAR),
+              data = samp)
+  data.frame(draw = i,
+             coef_chinese = coef(model)["chinese"],
+             se_chinese = summary(model)$coefficients["chinese", "Std. Error"])})
+
+robust_results <- bind_rows(results)
+
+ggplot(robust_results, aes(x = factor(draw), y = coef_chinese)) +
+  geom_point(size = 3, color = "steelblue4") +
+  geom_hline(yintercept = mean(robust_results$coef_chinese),
+             linetype = "dashed", color = "gray40") +
+  labs(title = "Robustness Across Random 500k Samples",
+       x = "Random Draw",
+       y = "Coefficient on Chinese Language Use") +
+  theme_minimal(base_size = 12)
+```
+
+The coefficient is highly stable across draws, ranging from approximately −0.186 to −0.214 — a total spread of roughly 0.028 log points. This stability suggests that the reversal and the magnitude of the penalty are genuine features of the ACS data rather than idiosyncratic quirks of the sample I chose at the start of the study.
 
 # Conclusion
 
-WORDS WORDS WORDS
+This paper set out to ask whether Chinese language use is associated with wage differences in the United States, after accounting for demographic characteristics. The short answer is: yes, but in a direction that inverts upon closer inspection.
+
+The three pre-analysis hypotheses provide a useful scaffold for summarizing the findings. The result support the first hypothesis that Chinese speakers earn more than non-Chinese speakers in raw terms. The second hypothesis that this positive association would shrink but survive the introduction of demographic controls is not supported. Rather than shrinking, the association reverses entirely upon the introduction of race controls, yielding an estimated wage *penalty* of approximately 19% for Chinese speakers relative to otherwise comparable individuals. The third hypothesis that non-ethnically Chinese Americans with Chinese fluency would out-earn ethnically Chinese Americans with Chinese fluency is partially supported. The interaction analysis shows that for White respondents, speaking Chinese is associated with a positive income results, while for ethnically Chinese and AAPI respondents it is associated with a penalty.
 
 ## Limitations
 
-Although the ACS sample allows for robust examinations of the American population with large samples, one primary limitation is that it lacks a specific variable for non-native languages spoken. Given that the only language variable (LANGUAGE) gauges the language an individual speaks at home, the operationalization of language use in this study is inherently hindered.
+Several important limitations constrain the conclusions that can be drawn from this analysis.
 
-This study was also limited purely by technology. Although additional variables, such as YRIMMIG (the year the respondent immigrated to the United States), BPL (birthplace), SCHLTYPE (whether the respondent attended public or private school), and ANCESTR1 (the respondent's self-reported ancestry or ethnic origin), could be beneficial to further analysis, technological constraints required that they be excluded from the sample.
+Although the ACS sample allows for examinations of the American population with large samples, one primary limitation is that it lacks a specific variable for non-native languages spoken. Given that the only language variable (LANGUAGE) gauges the language an individual speaks at home, the operationalization of language use in this study is inherently hindered.
+
+Second, education and occupation are excluded from all models due to data size constraints. Both are likely important confounders, and their omission, unfortunately, potentially biases the estimated penalty. Chinese-speaking immigrants may tend to be positively selected on education, meaning the true penalty is likely *understated*: a more educated Chinese-speaking population should earn more, so controlling for education would likely make the observed penalty larger, not smaller. Occupational sorting works similarly: if Chinese speakers are concentrated in lower-wage sectors such as food service or manufacturing, the penalty partly reflects sector, not language. Omitting occupation therefore conflates the two, and the true language-specific association could differ substantially from what is estimated here.
+
+Next, this study was also limited purely by technology. Although additional variables, such as YRIMMIG (the year the respondent immigrated to the United States), BPL (birthplace), SCHLTYPE (whether the respondent attended public or private school), and ANCESTR1 (the respondent's self-reported ancestry or ethnic origin), could be beneficial to further analysis, technological constraints required that they be excluded from the sample.
 
 # References
 
