@@ -32,6 +32,7 @@ library(tidyverse)
 library(knitr)
 library(modelsummary)
 library(scales)
+library(kableExtra)
 
 options(modelsummary_format_numeric_latex = "plain")
 options(knitr.kable.NA = '')
@@ -47,25 +48,32 @@ names(data)
 ```
 
 ```{r}
-data <- data[EMPSTAT %in% c(1, 2) & INCTOT > 0 & AGE >= 22 & AGE <= 64]
-dim(data)
+data <- readRDS("loaded_data_partial.rds")
 
-data <- data[, race_label := factor(RACE,
-  levels = 1:9,
-  labels = c("White",
-             "Black",
-             "American Indian/Alaska Native",
-             "Chinese",
-             "Japanese",
-             "Other Asian/Pacific Islander",
-             "Other race",
-             "Two races",
-             "Three+ races"))]
+data <- data |>
+  filter(EMPSTAT %in% c(1, 2),
+         INCTOT > 0,
+         AGE >= 22,
+         AGE <= 64) |>
+  mutate(race_label = factor(RACE,
+                             levels = 1:9,
+                             labels = c("White",
+                                   "Black","American Indian/Alaska Native",
+                                   "Chinese",
+                                   "Japanese",
+                                   "Other Asian/Pacific Islander",
+                                   "Other race",
+                                   "Two races",
+                                   "Three+ races")),
+         sex_label = factor(SEX,
+                             levels = c(1, 2),
+                             labels = c("Male", "Female")),
+         chinese = ifelse(LANGUAGE == 43, 1, 0),
+         log_income = log(INCTOT),
+         period = ifelse(YEAR <= 2004, "2000-2004", "2020-2024"))
 
-
-data <- data[, sex_label := factor(SEX,
-  levels = c(1,2),
-  labels = c("Male", "Female"))]
+set.seed(1)
+data <- data |> slice_sample(n = 500000)
 ```
 
 ```{r}
@@ -76,29 +84,22 @@ data[, .N, by = chinese]
 table(data$chinese)
 ```
 
+Table 1
 ```{r}
-set.seed(1)
-data <- data[sample(.N, 500000)]
+data |>
+  mutate(Group = ifelse(chinese == 1, "Chinese Speaker", "Non-Chinese Speaker")) |>
+  group_by(chinese) |>
+  summarize(Observations = n(),
+            `Mean Income` = round(mean(INCTOT, na.rm = TRUE), 0),
+            `Median Income` = round(median(INCTOT, na.rm = TRUE), 0),
+            `Mean Age`    = round(mean(AGE, na.rm = TRUE), 1),
+            .groups = "drop") |>
+  kable(booktabs = TRUE,
+        format.args = list(big.mark = ",")) |>
+  kable_styling(latex_options = "hold_position")
 ```
 
-```{r}
-table2 <- data[, .(mean_income = mean(INCTOT, na.rm = TRUE),
-         median_income = median(INCTOT, na.rm = TRUE),
-         mean_age = mean(AGE, na.rm = TRUE),
-         n = .N), 
-     by = chinese]
-
-kable(table2)
-```
-
-```{r}
-data[, log_income := log(INCTOT)]
-modelsimp <- lm(log_income ~ chinese, data = data)
-
-summary(modelsimp)
-```
-
-
+Difference In Baseline
 ```{r}
 library(ggplot2)
 
@@ -112,6 +113,15 @@ ggplot(data, aes(x = factor(chinese, labels = c("Cannot Speak Chinese", "Can Spe
 
 ```
 
+
+```{r}
+data <- data |> mutate(log_income = log(INCTOT))
+
+modelsimp <- lm(log_income ~ chinese, data = data)
+
+summary(modelsimp)
+```
+
 ```{r}
 modelcomp <- lm(log_income ~ chinese + AGE + sex_label + race_label + factor(YEAR),
                 data = data)
@@ -119,20 +129,6 @@ summary(modelcomp)
 ```
 
 ```{r}
-modelsummary(list("Simple" = modelsimp))
-modelsummary(list("With Moderators" = modelcomp),
-             coef_map = c("chinese" = "Speaks Chinese",
-                          "AGE" = "Age",
-                          "sex_labelFemale" = "Female",
-                          "race_labelBlack" = "Black",
-                          "race_labelAmerican Indian/Alaska Native" = "Indigenous",
-                          "race_labelChinese" = "Asian, Chinese",
-                          "race_labelJapanese" = "Asian, Japanese",
-                          "race_labelOther Asian/Pacific Islander" = "AAPI",
-                          "race_labelOther race" = "Other",
-                          "race_labelTwo races" = "Biracial",
-                          "race_labelThree+ races" = "Multiracial (3+)"))
-
 modelsummary(list("No Controls" = modelsimp,
                   "With Controls" = modelcomp),
              coef_map = c("chinese" = "Speaks Chinese",
@@ -147,7 +143,9 @@ modelsummary(list("No Controls" = modelsimp,
                           "race_labelTwo races" = "Biracial",
                           "race_labelThree+ races" = "Multiracial (3+)"),
              stars = TRUE,
-             statistic = "({std.error})")
+             statistic = "({std.error})",
+             output    = "kableExtra",
+             booktabs  = TRUE)
 ```
 
 ```{r}
@@ -176,6 +174,40 @@ modelsummary(list("Chinese only" = m1,
 ```
 
 ```{r}
+coef_data <- data.frame(
+  model = factor(c("No Controls", "+ Age", "+ Sex", "+ Race", "+ Year"),
+                 levels = c("No Controls", "+ Age", "+ Sex", "+ Race", "+ Year")),
+  estimate = c(coef(m1)["chinese"],
+               coef(m2)["chinese"],
+               coef(m3)["chinese"],
+               coef(m4)["chinese"],
+               coef(m5)["chinese"]),
+  se = c(summary(m1)$coefficients["chinese", "Std. Error"],
+         summary(m2)$coefficients["chinese", "Std. Error"],
+         summary(m3)$coefficients["chinese", "Std. Error"],
+         summary(m4)$coefficients["chinese", "Std. Error"],
+         summary(m5)$coefficients["chinese", "Std. Error"]))
+
+coef_data$ci_low  <- coef_data$estimate - 1.96 * coef_data$se
+coef_data$ci_high <- coef_data$estimate + 1.96 * coef_data$se
+
+ggplot(coef_data, aes(x = model, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_pointrange(aes(ymin = ci_low, ymax = ci_high), 
+                  size = 0.8, color = "steelblue") +
+  geom_vline(xintercept = 3.5, linetype = "dotted", color = "firebrick", alpha = 0.6) +
+  annotate("text", x = 3.6, y = 0.27, label = "Race added ->", 
+           hjust = 0, size = 3.5, color = "firebrick") +
+  labs(title = "Association Between Chinese Language Use and Log Income",
+       subtitle = "Coefficient on 'Speaks Chinese at Home' across nested OLS models",
+       x = "Iteration",
+       y = "Coefficient (log income)",
+       caption = "95% confidence intervals shown. N = 500,000. Data: IPUMS ACS 2000-2024.") +
+  theme_minimal(base_size = 13) +
+  theme(plot.subtitle = element_text(color = "gray40"))
+```
+
+```{r}
 table(data$chinese, data$race_label)
 ```
 
@@ -183,9 +215,64 @@ table(data$chinese, data$race_label)
 prop.table(table(data$chinese, data$race_label), 1)
 ```
 
-Droping Race
+Difference by period --> No difference noticed
 ```{r}
-lm(log_income ~ chinese + AGE + sex_label + factor(YEAR), data = data)
+library(dplyr)
+
+data <- data |> mutate(period = ifelse(YEAR <= 2004, "2000-2004", "2020-2024"))
+
+coeffs_period <- data |>
+  group_by(period) |>
+  reframe(coef = coef(lm(log_income ~ chinese + AGE + sex_label + race_label,
+                         data = pick(everything())))["chinese"])
+
+ggplot(coeffs_period, aes(x = period, y = coef)) +
+  geom_point(size = 3) +
+  labs(title = "Effect of Speaking Chinese on Income by Period",
+       y = "Coefficient on Chinese",
+       x = "Period") +
+  coord_cartesian(ylim = c(-0.3, 0))
+```
+
+Sample 2
+```{r}
+set.seed(123)
+
+data_full <- readRDS("loaded_data_partial.rds") |>
+  as_tibble() |>
+  filter(EMPSTAT %in% c(1, 2), INCTOT > 0, AGE >= 22, AGE <= 64) |>
+  mutate(race_label = factor(RACE, levels = 1:9,
+                             labels = c("White", 
+                                        "Black", 
+                                        "American Indian/Alaska Native",
+                                        "Chinese", 
+                                        "Japanese", 
+                                        "Other Asian/Pacific Islander",
+                                        "Other race", 
+                                        "Two races", 
+                                        "Three+ races")),
+    sex_label = factor(SEX, levels = c(1, 2), labels = c("Male", "Female")),
+    chinese = ifelse(LANGUAGE == 43, 1, 0),
+    log_income = log(INCTOT))
+
+results <- lapply(1:5, function(i) {
+  samp  <- data_full |> slice_sample(n = 500000)
+  model <- lm(log_income ~ chinese + AGE + sex_label + race_label + factor(YEAR),
+              data = samp)
+  data.frame(draw = i,
+             coef_chinese = coef(model)["chinese"],
+             se_chinese = summary(model)$coefficients["chinese", "Std. Error"])})
+
+robust_results <- bind_rows(results)
+
+ggplot(robust_results, aes(x = factor(draw), y = coef_chinese)) +
+  geom_point(size = 3, color = "steelblue4") +
+  geom_hline(yintercept = mean(robust_results$coef_chinese),
+             linetype = "dashed", color = "gray40") +
+  labs(title = "Robustness Across Random 500k Samples",
+       x = "Random Draw",
+       y = "Coefficient on Chinese Language Use") +
+  theme_minimal(base_size = 12)
 ```
 
 Restricting to Chinese Americans
@@ -199,106 +286,6 @@ Interaction model to see impact on each racial group
 ```{r}
 lm(log_income ~ chinese * race_label + AGE + sex_label + factor(YEAR), data = data)
 ```
-
-year split
-```{r}
-data_early <- data[YEAR <= 2004]
-data_late  <- data[YEAR >= 2020]
-
-lm(log_income ~ chinese + AGE + sex_label + race_label, data = data_early)
-lm(log_income ~ chinese + AGE + sex_label + race_label, data = data_late)
-```
-
-```{r}
-data_chinese_race <- data[race_label == "Chinese"]
-
-early_ch <- data_chinese_race[YEAR <= 2004]
-late_ch  <- data_chinese_race[YEAR >= 2020]
-
-lm(log_income ~ chinese + AGE + sex_label, data = early_ch)
-lm(log_income ~ chinese + AGE + sex_label, data = late_ch)
-```
-
-```{r}
-library(dplyr)
-
-data[, period := ifelse(YEAR <= 2004, "2000-2004", "2020-2024")]
-
-coeffs_period <- data %>%
-  group_by(period) %>%
-  do({
-    model <- lm(log_income ~ chinese + AGE + sex_label + race_label, data = .)
-    data.frame(coef = coef(model)["chinese"])
-  })
-
-ggplot(coeffs_period, aes(x = period, y = coef)) +
-  geom_point(size = 3) +
-  labs(title = "Effect of Speaking Chinese on Income by Period",
-       y = "Coefficient on Chinese",
-       x = "Period") + 
-  coord_cartesian(ylim = c(-0.3, 0))
-```
-
-Sample 2
-```{r}
-set.seed(123)
-
-# start from the full filtered data, not your already-sampled 500k object
-data_full <- fread("raw/data1.csv.gz",
-                   select = c("YEAR", "INCTOT", "LANGUAGE", "AGE", "SEX", "RACE", "EMPSTAT"))
-
-data_full <- data_full[EMPSTAT %in% c(1, 2) & INCTOT > 0 & AGE >= 22 & AGE <= 64]
-
-data_full[, race_label := factor(RACE,
-  levels = 1:9,
-  labels = c("White",
-             "Black",
-             "American Indian/Alaska Native",
-             "Chinese",
-             "Japanese",
-             "Other Asian/Pacific Islander",
-             "Other race",
-             "Two races",
-             "Three+ races"))]
-
-data_full[, sex_label := factor(SEX,
-  levels = c(1, 2),
-  labels = c("Male", "Female"))]
-
-data_full[, chinese := ifelse(LANGUAGE == 43, 1, 0)]
-data_full[, log_income := log(INCTOT)]
-
-# number of robustness draws
-n_draws <- 5
-
-results <- lapply(1:n_draws, function(i) {
-  samp <- data_full[sample(.N, 500000)]
-  
-  model <- lm(log_income ~ chinese + AGE + sex_label + race_label + factor(YEAR),
-              data = samp)
-  
-  data.frame(
-    draw = i,
-    coef_chinese = coef(model)["chinese"],
-    se_chinese = summary(model)$coefficients["chinese", "Std. Error"])})
-
-robust_results <- do.call(rbind, results)
-robust_results
-```
-
-```{r}
-rownames(robust_results) <- NULL
-robust_results
-
-ggplot(robust_results, aes(x = factor(draw), y = coef_chinese)) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = mean(robust_results$coef_chinese), linetype = "dashed") +
-  labs(
-    title = "Robustness Across Random 500k Samples",
-    x = "Random draw",
-    y = "Coefficient on Chinese")
-```
-
 
 Chinese Race Subsample
 ```{r}
@@ -368,37 +355,4 @@ modelsummary(list("2000-2004, No Controls" = m_early_simple,
              gof_map = c("nobs"))
 ```
 
-```{r}
-coef_data <- data.frame(
-  model = factor(c("No Controls", "+ Age", "+ Sex", "+ Race", "+ Year"),
-                 levels = c("No Controls", "+ Age", "+ Sex", "+ Race", "+ Year")),
-  estimate = c(coef(m1)["chinese"],
-               coef(m2)["chinese"],
-               coef(m3)["chinese"],
-               coef(m4)["chinese"],
-               coef(m5)["chinese"]),
-  se = c(summary(m1)$coefficients["chinese", "Std. Error"],
-         summary(m2)$coefficients["chinese", "Std. Error"],
-         summary(m3)$coefficients["chinese", "Std. Error"],
-         summary(m4)$coefficients["chinese", "Std. Error"],
-         summary(m5)$coefficients["chinese", "Std. Error"]))
-
-coef_data$ci_low  <- coef_data$estimate - 1.96 * coef_data$se
-coef_data$ci_high <- coef_data$estimate + 1.96 * coef_data$se
-
-ggplot(coef_data, aes(x = model, y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
-  geom_pointrange(aes(ymin = ci_low, ymax = ci_high), 
-                  size = 0.8, color = "steelblue") +
-  geom_vline(xintercept = 3.5, linetype = "dotted", color = "firebrick", alpha = 0.6) +
-  annotate("text", x = 3.6, y = 0.27, label = "Race added ->", 
-           hjust = 0, size = 3.5, color = "firebrick") +
-  labs(title = "Association Between Chinese Language Use and Log Income",
-       subtitle = "Coefficient on 'Speaks Chinese at Home' across nested OLS models",
-       x = "Iteration",
-       y = "Coefficient (log income)",
-       caption = "95% confidence intervals shown. N = 500,000. Data: IPUMS ACS 2000-2024.") +
-  theme_minimal(base_size = 13) +
-  theme(plot.subtitle = element_text(color = "gray40"))
-```
 
